@@ -1,0 +1,3 @@
+src/VENV/*
+.vscode/*
+src/timer.db
