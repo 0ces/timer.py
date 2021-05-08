@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 from os import chdir
 from os.path import exists, join, getmtime
