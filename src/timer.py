@@ -11,6 +11,7 @@ import pathlib
 from time import sleep, time
 from subprocess import Popen, PIPE
 from datetime import datetime
+from notifypy import Notify
 
 class Task(object):
     def __init__(self, connection, cursor, task):
@@ -78,7 +79,7 @@ class Task(object):
         self.__task['running'] = True
     
     def get_if_running(self):
-        self.__task['running'] = self.__process and self.__process.poll() != None
+        self.__task['running'] = bool(self.__process and self.__process.poll() != None)
     
     def must_run(self, now):
         if self.compare(now.year, self.__task['ano']):
@@ -90,10 +91,13 @@ class Task(object):
         return False
 
     def compare(self, at1, at2):
-        return at1 == at2 or at2 == '*'
+        return str(at1) == str(at2) or str(at2) == '*'
 
 class Main(object):
     def __init__(self):
+        self.notification = Notify(
+            default_notification_title='Timer'
+        )
         self.console = Console()
         self.__current_path = pathlib.Path(__file__).parent.absolute()
         self.__DB_PATH = join(self.__current_path, 'timer.db')
@@ -123,6 +127,7 @@ class Main(object):
             task['mes'] = input('Ingrese el mes (1-12, *): ')
             task['ano'] = input('Ingrese el año (NNNN, *): ')
             Task(self.con, self.cur, task).insert()
+            self.send_noti(f'Se ha agregado una nueva tarea\nTareas totales: {len(self.tasks)+1}')
         elif self.args.show_tasks:
             self.console.print(self.get_task_table(self.tasks))
         elif self.args.delete_task:
@@ -131,31 +136,38 @@ class Main(object):
             for task in self.tasks:
                 if f"{task.get_task()['id']}" == delete_id:
                     task.delete()
+                    self.send_noti(f'Se ha eliminado una tarea\nTareas totales: {len(self.tasks)-1}')
         elif self.args.edit_task:
             self.console.print(self.get_task_table(self.tasks))
             edit_id = input('Ingrese el id a editar: ')
-            for task in self.tasks:
-                if f"{task.get_task()['id']}" == edit_id:
-                    new_task = {}
-                    new_task['path'] = input('Ingrese el comando a ejecutar: ') or task['path']
-                    new_task['hora'] = input('Ingrese la hora (0-23, *): ') or task['hora']
-                    new_task['minuto'] = input('Ingrese el minuto (0-60, *): ') or task['minuto']
-                    new_task['dia'] = input('Ingrese el dia (Mon-Sun, 1-31, *): ') or task['dia']
-                    new_task['mes'] = input('Ingrese el mes (1-12, *): ') or task['mes']
-                    new_task['ano'] = input('Ingrese el año (NNNN, *): ') or task['ano']
-                    task.update(new_task)
+            for taskObj in self.tasks:
+                task = taskObj.get_task()
+                if f"{task['id']}" == edit_id:
+                    new_task = {
+                        'id': task['id']
+                    }
+                    new_task['path'] = input(f'Ingrese el comando a ejecutar [{task["path"]}]: ') or task['path']
+                    new_task['hora'] = input(f'Ingrese la hora (0-23, *) [{task["hora"]}]: ') or task['hora']
+                    new_task['minuto'] = input(f'Ingrese el minuto (0-60, *) [{task["minuto"]}]: ') or task['minuto']
+                    new_task['dia'] = input(f'Ingrese el dia (Mon-Sun, 1-31, *) [{task["dia"]}]: ') or task['dia']
+                    new_task['mes'] = input(f'Ingrese el mes (1-12, *) [{task["mes"]}]: ') or task['mes']
+                    new_task['ano'] = input(f'Ingrese el año (NNNN, *) [{task["ano"]}]: ') or task['ano']
+                    taskObj.update(new_task)
+                    self.send_noti(f'Se ha modificado una tarea\nTareas totales: {len(self.tasks)}')
         else:
+            self.send_noti(f'¡Timer ha iniciado!\nTareas totales: {len(self.tasks)}')
             with Live(self.get_task_table(self.tasks), refresh_per_second=4) as live:
                 while True:
+                    if getmtime(self.__DB_PATH) > self.lastdbmod:
+                        self.startDB()
+                    self.tasks = self.get_tasks_objs(self.get_tasks())
                     now = datetime.now()
                     for task in self.tasks:
                         if task.must_run(now):
                             task.run()
-                    if getmtime(self.__DB_PATH) > self.lastdbmod:
-                        self.startDB()
-                    self.tasks = self.get_tasks_objs(self.get_tasks())
-                    sleep(1 - now.microsecond/1e6)
+                            self.send_noti(f'Ejecutando tarea con id {task.get_task()["id"]}.')
                     live.update(self.get_task_table(self.tasks))
+                    sleep(60 - now.second)
     
     def get_args(self):
         parser = argparse.ArgumentParser()
@@ -224,6 +236,10 @@ class Main(object):
         self.con = sqlite3.connect(self.__DB_PATH)
         self.lastdbmod = getmtime(self.__DB_PATH)
         self.cur = self.con.cursor()
+    
+    def send_noti(self, msg):
+        self.notification.message = msg
+        self.notification.send(block=False)
 
 
 if __name__ == '__main__':
