@@ -1,14 +1,16 @@
 import argparse
 from os import chdir
-from os.path import exists, join
+from os.path import exists, join, getmtime
 import sqlite3
 from rich.console import Console
 from rich.panel import Panel
 from rich.columns import Columns
 from rich.table import Table
+from rich.live import Live
 import pathlib
-from time import sleep
+from time import sleep, time
 from subprocess import Popen, PIPE
+from datetime import datetime
 
 class Task(object):
     def __init__(self, connection, cursor, task):
@@ -19,7 +21,6 @@ class Task(object):
         self.__task['running'] = False
     
     def insert(self):
-        print(self.__task)
         self.__cursor.execute("""
         INSERT INTO tasks VALUES (
             ?,
@@ -39,7 +40,7 @@ class Task(object):
         ])
         self.__connection.commit()
     
-    def update(self):
+    def update(self, new_task):
         self.__cursor.execute("""
         UPDATE tasks
         SET
@@ -52,13 +53,13 @@ class Task(object):
         WHERE
         rowid = ?
         """, [
-                self.__task['path'],
-                self.__task['hora'],
-                self.__task['minuto'],
-                self.__task['dia'],
-                self.__task['mes'],
-                self.__task['ano'],
-                self.__task['id']
+                new_task['path'],
+                new_task['hora'],
+                new_task['minuto'],
+                new_task['dia'],
+                new_task['mes'],
+                new_task['ano'],
+                new_task['id']
         ])
         self.__connection.commit()
     
@@ -88,7 +89,7 @@ class Task(object):
                             return True
         return False
 
-    def compare(at1, at2):
+    def compare(self, at1, at2):
         return at1 == at2 or at2 == '*'
 
 class Main(object):
@@ -98,8 +99,7 @@ class Main(object):
         self.__DB_PATH = join(self.__current_path, 'timer.db')
         chdir(self.__current_path)
         base_initted = self.get_if_database()
-        self.con = sqlite3.connect(self.__DB_PATH)
-        self.cur = self.con.cursor()
+        self.startDB()
         if not base_initted:
             self.cur.execute("""
             CREATE TABLE tasks(
@@ -132,9 +132,30 @@ class Main(object):
                 if f"{task.get_task()['id']}" == delete_id:
                     task.delete()
         elif self.args.edit_task:
-            pass
+            self.console.print(self.get_task_table(self.tasks))
+            edit_id = input('Ingrese el id a editar: ')
+            for task in self.tasks:
+                if f"{task.get_task()['id']}" == edit_id:
+                    new_task = {}
+                    new_task['path'] = input('Ingrese el comando a ejecutar: ') or task['path']
+                    new_task['hora'] = input('Ingrese la hora (0-23, *): ') or task['hora']
+                    new_task['minuto'] = input('Ingrese el minuto (0-60, *): ') or task['minuto']
+                    new_task['dia'] = input('Ingrese el dia (Mon-Sun, 1-31, *): ') or task['dia']
+                    new_task['mes'] = input('Ingrese el mes (1-12, *): ') or task['mes']
+                    new_task['ano'] = input('Ingrese el año (NNNN, *): ') or task['ano']
+                    task.update(new_task)
         else:
-            pass
+            with Live(self.get_task_table(self.tasks), refresh_per_second=4) as live:
+                while True:
+                    now = datetime.now()
+                    for task in self.tasks:
+                        if task.must_run(now):
+                            task.run()
+                    if getmtime(self.__DB_PATH) > self.lastdbmod:
+                        self.startDB()
+                    self.tasks = self.get_tasks_objs(self.get_tasks())
+                    sleep(1 - now.microsecond/1e6)
+                    live.update(self.get_task_table(self.tasks))
     
     def get_args(self):
         parser = argparse.ArgumentParser()
@@ -198,6 +219,11 @@ class Main(object):
             )
 
         return table
+    
+    def startDB(self):
+        self.con = sqlite3.connect(self.__DB_PATH)
+        self.lastdbmod = getmtime(self.__DB_PATH)
+        self.cur = self.con.cursor()
 
 
 if __name__ == '__main__':
