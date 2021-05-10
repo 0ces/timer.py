@@ -1,9 +1,16 @@
 # **timer.py**
-Un script para la ejecución automática de comandos dado un tiempo específico.
+🕒 Un script de python para la ejecución programada de comandos. 
 
  # Contenido
+ - [Requisitos](#req)
  - [Instalación](#instalacion)
  - [Uso](#usage)
+
+# <a name="req"></a> Requisitos
+Para usar este script se necesita lo siguiente:
+ - Python3
+ - Git o GitHub
+ - Conocimientos básicos sobre el uso de linux
 
 # <a name="instalacion"></a> Instalación
 
