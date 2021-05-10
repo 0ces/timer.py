@@ -20,7 +20,9 @@ Para instalarlo es tan sencillo como clonar este repositorio con:
 
 ```shell
 $ git clone https://github.com/0ces/timer.py.git
+$ cd timer.py
 ```
+
 
 
 Instalar los requisitos con:
@@ -39,6 +41,12 @@ Si quieres que se ejecute automáticamente puedes añadir un comando a la hora d
 
 ```shell
 $ python3 /path/to/repo/timer.py/src/timer.py
+```
+
+O sencillamente:
+
+```shell
+$ /path/to/repo/timer.py/src/timer.py
 ```
 
 
