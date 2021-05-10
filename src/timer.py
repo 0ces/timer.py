@@ -209,7 +209,7 @@ class Main(object):
     def get_task_table(self, tasks):
         table = Table(
             'id',
-            'path',
+            'command',
             'hora',
             'minuto',
             'dia',
