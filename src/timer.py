@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from os import chdir
+from os import chdir, getpid
 from os.path import exists, join, getmtime
 import sqlite3
 from rich.console import Console
@@ -14,6 +14,7 @@ from time import sleep, time
 from subprocess import Popen, PIPE
 from datetime import datetime
 from notifypy import Notify
+from sys import platform
 
 class Task(object):
     def __init__(self, connection, cursor, task):
@@ -157,6 +158,9 @@ class Main(object):
                     taskObj.update(new_task)
                     self.send_noti(f'Se ha modificado una tarea\nTareas totales: {len(self.tasks)}')
         else:
+            if 'linux' in platform:
+                with open('/tmp/timer.pid', 'w') as pid:
+                    pid.write(getpid())
             self.send_noti(f'¡Timer ha iniciado!\nTareas totales: {len(self.tasks)}')
             with Live(self.get_task_table(self.tasks), refresh_per_second=4) as live:
                 while True:
