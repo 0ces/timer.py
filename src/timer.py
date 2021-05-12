@@ -160,7 +160,7 @@ class Main(object):
         else:
             if 'linux' in platform:
                 with open('/tmp/timer.pid', 'w') as pid:
-                    pid.write(getpid())
+                    pid.write(str(getpid()))
             self.send_noti(f'¡Timer ha iniciado!\nTareas totales: {len(self.tasks)}')
             with Live(self.get_task_table(self.tasks), refresh_per_second=4) as live:
                 while True:
